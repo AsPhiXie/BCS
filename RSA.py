@@ -35,25 +35,6 @@ def inverse_modulaire(a, m):
     else:
         return x % m
 
-def inverseMod(e,pqM1):
-    reste=1
-    u0, u1 = 1, 0  ## a1 + b0 = a
-    v0, v1 = 0, 1  ## a0 + b1 = b
-    coefu = [u0]  ## liste des coefficients u de bezout
-    coefv = [v0]  ## liste des coefficients v de bezout
-    while (reste>0):
-        q = e/pqM1  ## quotient de la division
-        reste = e-(pqM1*q)  ## reste de la division euclidienne
-        u2 = (u0 - (q*u1))  ## coef u{n+2}
-        v2 = (v0 - (q*v1))  ## coef v{n+2}
-        coefu.append(u1)
-        coefv.append(v1)
-        e = pqM1
-        pqM1 = reste
-        u0, v0 = u1, v1
-        u1, v1 = u2, v2
-    return coefu[len(coefu)-1]
-
 def gen_prim(): #n = nombre de bit
     p = random.randint((2**2046), (2**2047))
     if (1 == ((2**(p-1))%p) == ((3**(p-1))%p) == ((5**(p-1))%p) == ((7**(p-1))%p)):

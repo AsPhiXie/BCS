@@ -19,13 +19,27 @@ def shuffleCell(s):
         res |= ((s >> (4*l[i])) & 0xf) << (4*i)
     return res
 
-def mixColumn(s):
+def mixColumns(s):
     res = 0
     for i in range(16):
         t = (s >> (16*i)) & 0xFFFF
         u = ((t >> 4)^(t >> 8)^(t >> 12)) & 0xf
         u |= ((t ^ (t >> 8) ^ (t >> 12)) & 0xf) << 4
         u |= ((t ^ (t >> 4) ^ (t >> 12)) & 0xf) << 8
-        u |= ((t ^ (t >> 4) ^ (t >> 12)) & 0xf) << 12
+        u |= ((t ^ (t >> 4) ^ (t >> 8)) & 0xf) << 12
         res |= u << (16*i)
     return res
+
+def midori64(m, k):
+    k = [k & 0xFFFFFFFFFFFFFFFF, k >> 64]
+    wk = k[0] ^ k[1]
+    #alpha i
+    a = [.....]
+    s = m ^ wk
+    for i in range(15):
+        s = subCell(s)
+        s = shuffleCell(s)
+        s = mixColumns(s)
+        s ^= k[i%2] ^ a[i]
+    s = subCell(s)
+    return s^wk

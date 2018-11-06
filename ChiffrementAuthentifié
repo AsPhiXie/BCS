@@ -1,3 +1,4 @@
+import codecs
 
 ##########################################################################################
 #                                    MIDORI                                              #
@@ -116,15 +117,15 @@ def CBC(plain, cle, IV):
     msg = []
     block = []
     cpt = 0
-    msgChiffre = []
+    msgChiffre = ""
 
     for c in plain:
-        print(c)
+        #print(c)
         hexa = int(hex(ord(c)), base=16)
         high = hexa >> 4
         low = hexa & 0xF
-        print(high)
-        print(low)
+        #print(high)
+        #print(low)
 
         block.append(high)
         block.append(low)
@@ -133,7 +134,7 @@ def CBC(plain, cle, IV):
         ##Ajout du block dans le tableau et réinitialisation du block
         if(cpt > 15):
             msg.append(block)
-            print(block)
+            #print(block)
             block = []
             cpt = 0
 
@@ -142,20 +143,71 @@ def CBC(plain, cle, IV):
         while(cpt < 16):
             block.append(0x0)
             cpt = cpt + 1
-        print(block)
+        #print(block)
         msg.append(block)
 
     ##Chiffrement des blocs
-    block = [0 for i in range(16)]
+    block = IV
     for b in msg:
         block = midori64(xor(b, block), cle)
-        print(block)
-        msgChiffre.append(block)
-    return msgChiffre
-key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
-        0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
-print(CBC("s", key1, 0))
+        for c in block:
+            msgChiffre = msgChiffre + hex(c)[2:]
+    return msgChiffre.upper()
 
+def reverseCBC(cipher, cle, IV):
+    tabBlock = []
+    block = []
+    final = ""
+    cpt = 0
+
+    ##Récupération sous forme de blocs du chiffré
+    for c in cipher:
+        block.append(int(c, base=16))
+        cpt = cpt + 1
+        if(cpt > 15):
+            tabBlock.append(block)
+            block = []
+            cpt = 0
+
+    ##A partir d'ici block nous sert de block pour le xor
+    blockToXor = IV
+    cpt = 0
+    tmp = ""
+    ##Déchiffrement de chaque bloc avec reverseMidori
+    for b in tabBlock:
+        block = reverseMidori(b, cle)
+        block = xor(block, blockToXor)
+        blockToXor = b
+        for c in block:
+            tmp2 = tmp
+            tmp = str(c)
+            cpt = cpt + 1
+            if(cpt > 1):
+                cpt = 0
+                if(int(tmp) == 0 & int(tmp2) == 0):
+                    break
+
+                if(len(tmp2) > 1 & len(tmp) > 1):
+                    tmp = codecs.decode(hex(int(tmp2))[2:] + hex(int(tmp))[2:], "hex").decode('utf-8')
+                    print(tmp)
+                    final = final + tmp
+
+                if(len(tmp) > 1):
+                    tmp = codecs.decode(tmp2 + hex(int(tmp))[2:], "hex").decode('utf-8')
+                    print(tmp)
+                    final = final + tmp
+
+                elif(len(tmp2) > 1):
+                    tmp = codecs.decode(hex(int(tmp2))[2:] + tmp, "hex").decode('utf-8')
+                    print(tmp)
+                    final = final + tmp
+
+                else:
+                    tmp = codecs.decode(tmp2+tmp, "hex").decode('utf-8')
+                    print(tmp)
+                    final = final + tmp
+
+    return final
 
 ##Fonction de dérivation de clé/vecteurs d'initialisation à partir d'un mdp (8 caractères)
 ##En CBC taille vecteur d'initialisation = taille du bloc
@@ -164,4 +216,15 @@ print(CBC("s", key1, 0))
 #                             Fonction de dérivation de clés                             #
 ##########################################################################################
 
+key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
+        0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
 
+cipher = CBC("salutsava", key1, [0 for i in range(16)])
+print(cipher)
+dechipher = reverseCBC(cipher, key1, [0 for i in range(16)])
+print(dechipher)
+
+#if __name__ == '__main__':
+#    msg = input("Entrez le message à chiffrer :")
+#    print(msg)
+#    passwd = input("Entrez un mot de passe :")

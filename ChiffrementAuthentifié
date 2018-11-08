@@ -1,4 +1,4 @@
-import codecs
+import codecs, random, sys
 
 ##########################################################################################
 #                                    MIDORI                                              #
@@ -120,12 +120,9 @@ def CBC(plain, cle, IV):
     msgChiffre = ""
 
     for c in plain:
-        #print(c)
         hexa = int(hex(ord(c)), base=16)
         high = hexa >> 4
         low = hexa & 0xF
-        #print(high)
-        #print(low)
 
         block.append(high)
         block.append(low)
@@ -134,7 +131,6 @@ def CBC(plain, cle, IV):
         ##Ajout du block dans le tableau et réinitialisation du block
         if(cpt > 15):
             msg.append(block)
-            #print(block)
             block = []
             cpt = 0
 
@@ -143,7 +139,6 @@ def CBC(plain, cle, IV):
         while(cpt < 16):
             block.append(0x0)
             cpt = cpt + 1
-        #print(block)
         msg.append(block)
 
     ##Chiffrement des blocs
@@ -189,22 +184,18 @@ def reverseCBC(cipher, cle, IV):
 
                 if(len(tmp2) > 1 & len(tmp) > 1):
                     tmp = codecs.decode(hex(int(tmp2))[2:] + hex(int(tmp))[2:], "hex").decode('utf-8')
-                    print(tmp)
                     final = final + tmp
 
                 if(len(tmp) > 1):
                     tmp = codecs.decode(tmp2 + hex(int(tmp))[2:], "hex").decode('utf-8')
-                    print(tmp)
                     final = final + tmp
 
                 elif(len(tmp2) > 1):
                     tmp = codecs.decode(hex(int(tmp2))[2:] + tmp, "hex").decode('utf-8')
-                    print(tmp)
                     final = final + tmp
 
                 else:
                     tmp = codecs.decode(tmp2+tmp, "hex").decode('utf-8')
-                    print(tmp)
                     final = final + tmp
 
     return final
@@ -216,6 +207,12 @@ def reverseCBC(cipher, cle, IV):
 #                             Fonction de dérivation de clés                             #
 ##########################################################################################
 
+def PBKDF2(mdp, seed):
+    random.seed(seed)
+
+    resultat = ""
+    return resultat
+
 key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
         0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
 
@@ -223,6 +220,12 @@ cipher = CBC("salutsava", key1, [0 for i in range(16)])
 print(cipher)
 dechipher = reverseCBC(cipher, key1, [0 for i in range(16)])
 print(dechipher)
+
+#print(os.urandom(128))
+random.seed("salut")
+nb = random.randint(0, sys.maxsize)
+print(nb)
+print(len(str(nb)))
 
 #if __name__ == '__main__':
 #    msg = input("Entrez le message à chiffrer :")

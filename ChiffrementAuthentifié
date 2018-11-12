@@ -1,4 +1,4 @@
-import codecs, random, sys, hmac, hashlib, base64, binascii
+import codecs, binascii
 
 ##########################################################################################
 #                                       SHA3                                             #
@@ -406,22 +406,35 @@ def reverseCBC(cipher, cle, IV):
 #                             Fonction de dérivation de clés                             #
 ##########################################################################################
 
-def genKey(mdp):
+def genKey(mdp, mode):
     alea = int(hex(ord(mdp[:1])), base=16) & 0xFF
     res = mdp + str(alea)
     print(res)
     res = sha3(res, 512)
     return res
 
-print(genKey('salut'))
+#print(genKey('salut'))
+
+##########################################################################################
+#                                       HMAC                                             #
+##########################################################################################
+
+opad = 0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c
+ipad = 0x36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636
+
+print(len(str(opad)))
+
+def HMAC(m, mdp):
+    k = genKey(mdp, "iv")
+    block1 = xor2Block(k, opad)
+    block2 = xor2Block(k, ipad)
+    hash = block1 + block2 + m
+    return sha3(hash, 512)
 
 key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
         0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
 
-cipher = CBC("salutsava", key1, [0 for i in range(16)])
-print(cipher)
-dechipher = reverseCBC(cipher, key1, [0 for i in range(16)])
-print(dechipher)
+#cipher = CBC("salutsava", key1, [0 for i in range(16)])
 
 #if __name__ == '__main__':
 #    msg = input("Entrez le message à chiffrer :")

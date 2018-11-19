@@ -178,7 +178,6 @@ def sha3(M, version):
         #c = 1600-r
 
     M = Text2Bits(M)
-    print("M = " + M)
     tmp = padding(M, r)
     ensMessage = toBlock(tmp, r)
     block = '0'*1600
@@ -205,9 +204,6 @@ def sha3(M, version):
 ##########################################################################################
 
 sbox = [0xc, 0xa, 0xd, 0x3, 0xe, 0xb, 0xf, 0x7, 0x8, 0x9, 0x1, 0x5, 0x0, 0x2, 0x4, 0x6]
-
-p = [0, 10, 5, 15, 14, 4, 11, 1, 9, 3, 12, 6, 7, 13, 2, 8]
-invP = [0, 7, 14, 9, 5, 2, 11, 12, 15, 8, 1, 6, 10, 13, 4, 3]
 
 a0 = [0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1]
 a1 = [0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0]
@@ -239,6 +235,7 @@ def subCells(matrice):
 
 
 def shuffleCells(matrice):
+    p = [0, 10, 5, 15, 14, 4, 11, 1, 9, 3, 12, 6, 7, 13, 2, 8]
     res = [0 for i in range(16)]
     for i in range(16):
         res[i] = matrice[p[i]]
@@ -246,6 +243,7 @@ def shuffleCells(matrice):
 
 
 def reverseShuffleCells(matrice):
+    invP = [0, 7, 14, 9, 5, 2, 11, 12, 15, 8, 1, 6, 10, 13, 4, 3]
     res = [0 for i in range(16)]
     for i in range(16):
         res[i] = matrice[invP[i]]
@@ -283,7 +281,6 @@ def midori64(m, k):
     res = subCells(res)
     res = addKey(res, wk)
     return res
-
 
 def reverseMidori(m, k):
     wk = addKey(k[0:16], k[16:32])
@@ -357,7 +354,7 @@ def CBC(plain, cle, IV):
         block = midori64(xor2Block(b, block), cle)
         for c in block:
             msgChiffre = msgChiffre + hex(c)[2:]
-    return msgChiffre.upper()
+    return msgChiffre
 
 def reverseCBC(cipher, cle, IV):
     tabBlock = []
@@ -419,10 +416,23 @@ def reverseCBC(cipher, cle, IV):
 ##########################################################################################
 
 def genKey(mdp, mode):
-    alea = int(hex(ord(mdp[:1])), base=16) & 0xFF
-    res = mdp + str(alea)
-    res = sha3(res, 512)
-    return res
+    if(mode == "IV"):
+        alea = int(hex(ord(mdp[-1:])), base=16) & 0xFF
+        res = mdp + str(alea)
+        res = sha3(res, 512)
+        return res
+    elif(mode == "HMACKey"):
+        alea = int(hex(ord(mdp[1])), base=16) & 0xFF
+        res = mdp + str(alea)
+        res = sha3(res, 512)
+        return res
+    elif (mode == "MidoriKey"):
+        alea = int(hex(ord(mdp[0])), base=16) & 0xFF
+        res = mdp + str(alea)
+        res = sha3(res, 512)
+        return res
+    else:
+        return "Mode incorrect."
 
 #print(genKey('salut', 500))
 
@@ -433,21 +443,56 @@ def genKey(mdp, mode):
 opad = "5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c"
 ipad = "36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636"
 
-def HMAC(m, mdp):
-    k = genKey(mdp, "iv")
-    block1 = xor2String(k, opad)
-    block2 = sha3(Bits2Text(xor2String(k, ipad)) + m, 512)
+def HMAC(m, key):
+    block1 = xor2String(key, opad)
+    block2 = sha3(Bits2Text(xor2String(key, ipad)) + m, 512)
     blockFinal = Bits2Text(block1) + block2
     return sha3(blockFinal, 512)
 
-print(HMAC("salut", "key"))
+#print(HMAC("salut", "key"))
+
+##########################################################################################
+#                                    ENCRYPT-THEN-MAC                                    #
+##########################################################################################
+
+def encryptThenMac(m, mdp):
+    genMidoriKey = genKey(mdp, "MidoriKey")[:64]
+    HMACKey = genKey(mdp, "HMACKey")
+    genIV = genKey(mdp, "IV")
+    IV = []
+    MidoriKey = []
+    for c in genIV[:16]:
+        IV.append(int(c, base=16))
+    for c in genMidoriKey[:32]:
+        MidoriKey.append(int(c, base=16))
+    resCBC = CBC(m, MidoriKey, IV)
+    resFinal = resCBC + HMAC(resCBC, HMACKey)
+    return resFinal
+
+def decrypt(c, mdp):
+    mac = c[-128:]
+    lenCipher = len(c) - 128
+    cipher = c[:lenCipher]
+
+    HMACKey = genKey(mdp, "HMACKey")
+    macCipher = HMAC(cipher, HMACKey)
+    if macCipher != mac :
+        print("MAC non correct.")
+        exit(1)
+
+    return mac
+
+print(encryptThenMac("salutaaaaaaaaaaaaa", "key"))
+print(decrypt("333908e616f59b2203e53ae99b763cfac42726621267f573f4ba570fe8560debd7d3534d50e4c181cc2f233b663a5a64fcf55e8e61b83e8e3a51d34e65c3d678241778e498c7055abd0045e1376d3d3e633ec58ce03544c4", "key"))
+
 
 key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
         0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
 
+
 #cipher = CBC("salutsava", key1, [0 for i in range(16)])
 
 #if __name__ == '__main__':
-#    msg = input("Entrez le message à chiffrer :")
+#    msg = input("Entrez le message à chiffrer : ")
 #    print(msg)
-#    passwd = input("Entrez un mot de passe :")
+#    passwd = input("Entrez un mot de passe : ")

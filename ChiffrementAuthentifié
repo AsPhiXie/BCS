@@ -178,6 +178,7 @@ def sha3(M, version):
         #c = 1600-r
 
     M = Text2Bits(M)
+    print("M = " + M)
     tmp = padding(M, r)
     ensMessage = toBlock(tmp, r)
     block = '0'*1600
@@ -187,6 +188,7 @@ def sha3(M, version):
         block = f(block, 24)
 
     res = block[:version]
+
     final = ''
     i = 0
     while(i < 512):
@@ -196,7 +198,7 @@ def sha3(M, version):
         final += hexa
         i += 8
 
-    return final.upper()
+    return final
 
 ##########################################################################################
 #                                    MIDORI                                              #
@@ -309,6 +311,16 @@ def xor2Block(b, c):
         res.append(b[i] ^ c[i])
     return res
 
+def xor2String(b, c):
+    res = ""
+    op1 = Text2Bits(b)
+    op2 = Text2Bits(c)
+    for i in range(0, len(op1)):
+        t1 = int(op1[i])
+        t2 = int(op2[i])
+        res+=str(t1^t2)
+    return res
+
 ##La cle doit être générée par une fonction de dérivation de clés, à partir d'un mdp (input)
 ##Pareil pour l'IV et pour la clé du Hash
 def CBC(plain, cle, IV):
@@ -409,27 +421,26 @@ def reverseCBC(cipher, cle, IV):
 def genKey(mdp, mode):
     alea = int(hex(ord(mdp[:1])), base=16) & 0xFF
     res = mdp + str(alea)
-    print(res)
     res = sha3(res, 512)
     return res
 
-#print(genKey('salut'))
+#print(genKey('salut', 500))
 
 ##########################################################################################
 #                                       HMAC                                             #
 ##########################################################################################
 
-opad = 0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c
-ipad = 0x36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636
-
-print(len(str(opad)))
+opad = "5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c"
+ipad = "36363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636"
 
 def HMAC(m, mdp):
     k = genKey(mdp, "iv")
-    block1 = xor2Block(k, opad)
-    block2 = xor2Block(k, ipad)
-    hash = block1 + block2 + m
-    return sha3(hash, 512)
+    block1 = xor2String(k, opad)
+    block2 = sha3(Bits2Text(xor2String(k, ipad)) + m, 512)
+    blockFinal = Bits2Text(block1) + block2
+    return sha3(blockFinal, 512)
+
+print(HMAC("salut", "key"))
 
 key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
         0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]

@@ -416,11 +416,14 @@ def reverseCBC(cipher, cle, IV):
 ##########################################################################################
 
 def genKey(mdp, mode):
+    resultat = []
     if(mode == "IV"):
         alea = int(hex(ord(mdp[-1:])), base=16) & 0xFF
         res = mdp + str(alea)
         res = sha3(res, 512)
-        return res
+        for c in res[:16]:
+            resultat.append(int(c, base=16))
+        return resultat
     elif(mode == "HMACKey"):
         alea = int(hex(ord(mdp[1])), base=16) & 0xFF
         res = mdp + str(alea)
@@ -430,7 +433,9 @@ def genKey(mdp, mode):
         alea = int(hex(ord(mdp[0])), base=16) & 0xFF
         res = mdp + str(alea)
         res = sha3(res, 512)
-        return res
+        for c in res[:32]:
+            resultat.append(int(c, base=16))
+        return resultat
     else:
         return "Mode incorrect."
 
@@ -456,15 +461,9 @@ def HMAC(m, key):
 ##########################################################################################
 
 def encryptThenMac(m, mdp):
-    genMidoriKey = genKey(mdp, "MidoriKey")[:64]
+    MidoriKey = genKey(mdp, "MidoriKey")[:64]
     HMACKey = genKey(mdp, "HMACKey")
-    genIV = genKey(mdp, "IV")
-    IV = []
-    MidoriKey = []
-    for c in genIV[:16]:
-        IV.append(int(c, base=16))
-    for c in genMidoriKey[:32]:
-        MidoriKey.append(int(c, base=16))
+    IV = genKey(mdp, "IV")
     resCBC = CBC(m, MidoriKey, IV)
     resFinal = resCBC + HMAC(resCBC, HMACKey)
     return resFinal
@@ -476,23 +475,16 @@ def decrypt(c, mdp):
 
     HMACKey = genKey(mdp, "HMACKey")
     macCipher = HMAC(cipher, HMACKey)
+
     if macCipher != mac :
         print("MAC non correct.")
         exit(1)
 
-    return mac
+    MidoriKey = genKey(mdp, "MidoriKey")
+    IV = genKey(mdp, "IV")
+
+    return reverseCBC(cipher, MidoriKey, IV)
 
 print(encryptThenMac("salutaaaaaaaaaaaaa", "key"))
 print(decrypt("333908e616f59b2203e53ae99b763cfac42726621267f573f4ba570fe8560debd7d3534d50e4c181cc2f233b663a5a64fcf55e8e61b83e8e3a51d34e65c3d678241778e498c7055abd0045e1376d3d3e633ec58ce03544c4", "key"))
 
-
-key1 = [0x6, 0x8, 0x7, 0xd, 0xe, 0xd, 0x3, 0xb, 0x3, 0xc, 0x8, 0x5, 0xb, 0x3, 0xf, 0x3,
-        0x5, 0xb, 0x1, 0x0, 0x0, 0x9, 0x8, 0x6, 0x3, 0xe, 0x2, 0xa, 0x8, 0xc, 0xb, 0xf]
-
-
-#cipher = CBC("salutsava", key1, [0 for i in range(16)])
-
-#if __name__ == '__main__':
-#    msg = input("Entrez le message à chiffrer : ")
-#    print(msg)
-#    passwd = input("Entrez un mot de passe : ")

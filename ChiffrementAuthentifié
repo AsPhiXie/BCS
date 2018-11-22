@@ -1,4 +1,4 @@
-import codecs, binascii
+import binascii, argparse
 
 ##########################################################################################
 #                                       SHA3                                             #
@@ -17,120 +17,94 @@ def int2bytes(i):
     n = len(hex_string)
     return binascii.unhexlify(hex_string.zfill(n + (n & 1)))
 
-def padding(M,r):
-    """Ajoute du padding a un message quelconque afin de le rendre de taille multiple de r."""
-
-    val = len(M + '11') % r
-    res = M + '1' + '0'*((r-val)%r) + '1'
-    return res
-
-
 def toBlock(M, r):
-    """Transforme un message de taille multiple de r en un tableau de partie de message tous de taille r."""
-
     k = len(M) // r
     m = [M[r*i:r*(i+1)] for i in range(k)]
     return m
 
+def padding(M,r):
+    val = len(M + '11') % r
+    res = M + '1' + '0'*((r-val)%r) + '1'
+    return res
 
 def xor(block, m, r):
-    """Realise un xor bit a bit entre un block de taille > r et un message de taille r."""
-
     res = [block[i] for i in range(len(block))]
     for i in range(r):
         res[i] = str(int(block[i])^int(m[i]))
     return res
 
-
+#1600 bits -> 5*5*64
 def transformation(block):
-    """Transforme un block de 1600 bits en une matrice 3 dimension 5*5*64."""
-
     res = [['0'*64 for i in range(5)] for i in range(5)]
-    for ligne in range(5):
-        for colonne in range(5):
-            res[ligne][colonne] = block[ligne*320+colonne*64:64+ligne*320+colonne*64]
+    for l in range(5):
+        for c in range(5):
+            res[l][c] = block[l*320+c*64:64+l*320+c*64]
     return res
 
-
-def detransformation(matrice):
-    """Transforme une matrice 3 dimension 5*5*64 en un block de 1600 bits."""
-
+#5*5*64 -> 1600 bits
+def detransformation(s):
     res = ''
     for ligne in range(5):
         for colonne in range(5):
-            res += matrice[ligne][colonne]
+            res += s[ligne][colonne]
     return res
 
-
-def cp(matrice, x, z):
-    """Calcul de la parité de la colonne situé à l'emplacement x, z."""
-
+#Calcul parité
+def cp(s, x, z):
     res = str(
-    int(matrice[x][0][z]) ^
-    int(matrice[x][1][z]) ^
-    int(matrice[x][2][z]) ^
-    int(matrice[x][3][z]) ^
-    int(matrice[x][4][z])
+    int(s[x][0][z]) ^
+    int(s[x][1][z]) ^
+    int(s[x][2][z]) ^
+    int(s[x][3][z]) ^
+    int(s[x][4][z])
     )
     return res
 
-
-def theta(matrice):
-    """Fonction theta de Keccak realisé sur une matrice de 1600 bits découpé en matrice 5*5*64. Réalisation d'un ensemble de xor sur les différents bits de la matrice."""
-
+#1600 bits -> 5*5*64
+def Teta(s):
     res = [['0'*64 for i in range(5)] for i in range(5)]
     for x in range(5):
         for y in range(5):
             for z in range(64):
                 res[x][y] = res[x][y][:z] + \
-                str(int(matrice[x][y][z]) ^ int(cp(matrice, (x+1)%5, (z-1)%64)) ^ int(cp(matrice, (x-1)%5, z)))
+                str(int(s[x][y][z]) ^ int(cp(s, (x+1)%5, (z-1)%64)) ^ int(cp(s, (x-1)%5, z)))
     return res
 
-
-def rho(matrice):
-    """Fonction rho de Keccak réalisé sur une matrice de 1600 bits découpée en matrice 5*5*64. Réalisation d'un ensemble de rotation sur les mots de 64 bits dans la matrice 5*5."""
-
+#1600 bits -> 5*5*64
+def Rho(s):
     rotation = [[0,36,3,41,18],[1,44,10,45,2],[62,6,43,15,61],[28,55,25,21,56],[27,20,39,8,14]]
     res = [['0'*64 for i in range(5)] for i in range(5)]
     for x in range(5):
         for y in range(5):
-            res[x][y] = matrice[x][y][rotation[x][y]:] + matrice[x][y][:rotation[x][y]]
+            res[x][y] = s[x][y][rotation[x][y]:] + s[x][y][:rotation[x][y]]
     return res
 
 
-def pi(matrice):
-    """Fonction pi de Keccak réalisé sur une matrice de 1600 bits découpée en matrice 5*5*64. Réalisation d'un mélange des mots de 64 bits dans la matrice 5*5."""
-
+def Pi(s):
     res = [['0'*64 for i in range(5)] for i in range(5)]
     for x in range(5):
         for y in range(5):
-            res[y][(2*x+3*y)%5] = matrice[x][y]
+            res[y][(2*x+3*y)%5] = s[x][y]
     return res
 
 
-def khi(matrice):
-    """Fonction khi de Keccak réalisé sur une matrice de 1600 bits découpée en matrice 5*5*64. Réalisation d'un ensemble d'opération sur les différents bits de la matrice."""
-
+def Khi(s):
     res = [['0'*64 for i in range(5)] for i in range(5)]
     for x in range(5):
         for y in range(5):
             for z in range(64):
                 res[x][y] = res[x][y][:z] + \
-                str(int(matrice[x][y][z]) ^ ((int(matrice[(x+1)%5][y][z]) ^ 1) & int(matrice[(x+2)%5][y][z])))
+                str(int(s[x][y][z]) ^ ((int(s[(x+1)%5][y][z]) ^ 1) & int(s[(x+2)%5][y][z])))
     return res
 
 
 def hexToBin(hexa):
-    """Transforme un nombre en hexadecimal en un mot de 64 bits."""
-
     res = bin(hexa)[2:]
     res = '0'*(64-len(res))+res
     return res
 
 
-def iota(matrice, roundNb):
-    """Fonction iota de Keccak réalisé sur une matrice de 1600 bits découpée en matrice 5*5*64. Ajout d'une constante sur la 1ere ligne de la matrice 5*5 (située en 0,0)."""
-
+def Iota(s, roundNb):
     RC = [
     0x0000000000000001, 0x0000000000008082, 0x800000000000808a,
     0x8000000080008000, 0x000000000000808b, 0x0000000080000001,
@@ -143,39 +117,32 @@ def iota(matrice, roundNb):
 
     binRC = hexToBin(RC[roundNb])
 
-    res = [[matrice[j][i] for i in range(5)] for j in range(5)]
+    res = [[s[j][i] for i in range(5)] for j in range(5)]
     for z in range(64):
         res[0][0] = res[0][0][:z] + \
-        str(int(matrice[0][0][z]) ^ int(binRC[z]))
+        str(int(s[0][0][z]) ^ int(binRC[z]))
     return res
 
 
-def f(block, nbRound):
-    """Fonction de permutation de Keccak."""
-    #print(block)
-    matrice = transformation(block)
-    #print(matrice)
+def F(block, nbRound):
+    s = transformation(block)
+
     for i in range(nbRound):
-        matrice = theta(matrice)
-        matrice = rho(matrice)
-        matrice = pi(matrice)
-        matrice = khi(matrice)
-        matrice = iota(matrice, i)
-        res = detransformation(matrice)
+        s = Teta(s)
+        s = Rho(s)
+        s = Pi(s)
+        s = Khi(s)
+        s = Iota(s, i)
+        res = detransformation(s)
     return res
-##Sha3-512 : r = 576; c = 1024
-##Sha3-384 : r = 832; c = 768
-##Sha3-256 : r = 1088; c = 512
-##Sha3-224 : r = 1152; c = 448
 
 def sha3(M, version):
     v = {512:576, 384:832, 256:1088, 224:1152}
     if (not version in v):
-        print('Version non valide pour Keccak.')
+        print('Version non valide.')
         exit(1)
     else:
         r = v[version]
-        #c = 1600-r
 
     M = Text2Bits(M)
     tmp = padding(M, r)
@@ -184,15 +151,15 @@ def sha3(M, version):
 
     for m in ensMessage:
         block = xor(block, m, r)
-        block = f(block, 24)
+        block = F(block, 24)
 
     res = block[:version]
 
-    final = ''
+    final = ""
     i = 0
-    while(i < 512):
+    while i < 512:
         hexa = hex(int(res[i:i + 8], 2))[2:]
-        if(len(hexa) == 1):
+        if len(hexa) == 1:
             hexa = '0' + hexa
         final += hexa
         i += 8
@@ -204,6 +171,7 @@ def sha3(M, version):
 ##########################################################################################
 
 sbox = [0xc, 0xa, 0xd, 0x3, 0xe, 0xb, 0xf, 0x7, 0x8, 0x9, 0x1, 0x5, 0x0, 0x2, 0x4, 0x6]
+
 
 a0 = [0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1]
 a1 = [0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0]
@@ -227,43 +195,43 @@ def subCell(mot):
     return sbox[mot]
 
 
-def subCells(matrice):
+def subCells(s):
     res = [0 for i in range(16)]
     for j in range(16):
-        res[j] = subCell(matrice[j])
+        res[j] = subCell(s[j])
     return res
 
 
-def shuffleCells(matrice):
+def shuffleCells(s):
     p = [0, 10, 5, 15, 14, 4, 11, 1, 9, 3, 12, 6, 7, 13, 2, 8]
     res = [0 for i in range(16)]
     for i in range(16):
-        res[i] = matrice[p[i]]
+        res[i] = s[p[i]]
     return res
 
 
-def reverseShuffleCells(matrice):
+def reverseShuffleCells(s):
     invP = [0, 7, 14, 9, 5, 2, 11, 12, 15, 8, 1, 6, 10, 13, 4, 3]
     res = [0 for i in range(16)]
     for i in range(16):
-        res[i] = matrice[invP[i]]
+        res[i] = s[invP[i]]
     return res
 
 
-def mixColumn(matrice):
+def mixColumn(s):
     res = [0 for i in range(16)]
     for i in range(4):
-        res[0 + 4 * i] = matrice[1 + 4 * i] ^ matrice[2 + 4 * i] ^ matrice[3 + 4 * i]
-        res[1 + 4 * i] = matrice[0 + 4 * i] ^ matrice[2 + 4 * i] ^ matrice[3 + 4 * i]
-        res[2 + 4 * i] = matrice[0 + 4 * i] ^ matrice[1 + 4 * i] ^ matrice[3 + 4 * i]
-        res[3 + 4 * i] = matrice[0 + 4 * i] ^ matrice[1 + 4 * i] ^ matrice[2 + 4 * i]
+        res[0 + 4 * i] = s[1 + 4 * i] ^ s[2 + 4 * i] ^ s[3 + 4 * i]
+        res[1 + 4 * i] = s[0 + 4 * i] ^ s[2 + 4 * i] ^ s[3 + 4 * i]
+        res[2 + 4 * i] = s[0 + 4 * i] ^ s[1 + 4 * i] ^ s[3 + 4 * i]
+        res[3 + 4 * i] = s[0 + 4 * i] ^ s[1 + 4 * i] ^ s[2 + 4 * i]
     return res
 
 
-def addKey(matrice, key):
+def addKey(s, key):
     res = [0 for i in range(16)]
     for i in range(16):
-        res[i] = matrice[i] ^ key[i]
+        res[i] = s[i] ^ key[i]
     return res
 
 
@@ -318,8 +286,8 @@ def xor2String(b, c):
         res+=str(t1^t2)
     return res
 
-##La cle doit être générée par une fonction de dérivation de clés, à partir d'un mdp (input)
-##Pareil pour l'IV et pour la clé du Hash
+#La cle doit être générée par une fonction de dérivation de clés, à partir d'un mdp (input)
+#Pareil pour l'IV et pour la clé du Hash
 def CBC(plain, cle, IV):
     msg = []
     block = []
@@ -335,20 +303,20 @@ def CBC(plain, cle, IV):
         block.append(low)
         cpt = cpt + 2
 
-        ##Ajout du block dans le tableau et réinitialisation du block
+        #Ajout du block dans le tableau et réinitialisation du block
         if(cpt > 15):
             msg.append(block)
             block = []
             cpt = 0
 
-    ##Padding
+    #Padding
     if(cpt < 15):
         while(cpt < 16):
             block.append(0x0)
             cpt = cpt + 1
         msg.append(block)
 
-    ##Chiffrement des blocs
+    #Chiffrement des blocs
     block = IV
     for b in msg:
         block = midori64(xor2Block(b, block), cle)
@@ -362,20 +330,19 @@ def reverseCBC(cipher, cle, IV):
     final = ""
     cpt = 0
 
-    ##Récupération sous forme de blocs du chiffré
+    #Récupération sous forme de blocs du chiffré
     for c in cipher:
         block.append(int(c, base=16))
         cpt = cpt + 1
-        if(cpt > 15):
+        if cpt > 15:
             tabBlock.append(block)
             block = []
             cpt = 0
-
-    ##A partir d'ici block nous sert de block pour le xor
+    #A partir d'ici block nous sert de block pour le xor
     blockToXor = IV
     cpt = 0
     tmp = ""
-    ##Déchiffrement de chaque bloc avec reverseMidori
+    #Déchiffrement de chaque bloc avec reverseMidori
     for b in tabBlock:
         block = reverseMidori(b, cle)
         block = xor2Block(block, blockToXor)
@@ -386,25 +353,27 @@ def reverseCBC(cipher, cle, IV):
             cpt = cpt + 1
             if(cpt > 1):
                 cpt = 0
-                if(int(tmp) == 0 & int(tmp2) == 0):
-                    break
 
                 if(len(tmp2) > 1 & len(tmp) > 1):
-                    tmp = codecs.decode(hex(int(tmp2))[2:] + hex(int(tmp))[2:], "hex").decode('utf-8')
+                    tmp = chr(int(tmp2, 16)) + chr(int(tmp, 16))
                     final = final + tmp
 
                 if(len(tmp) > 1):
-                    tmp = codecs.decode(tmp2 + hex(int(tmp))[2:], "hex").decode('utf-8')
+                    tmp = tmp2 + hex(int(tmp))[2:]
+                    tmp = chr(int(tmp, 16))
                     final = final + tmp
 
                 elif(len(tmp2) > 1):
-                    tmp = codecs.decode(hex(int(tmp2))[2:] + tmp, "hex").decode('utf-8')
+                    tmp = hex(int(tmp2))[2:] + tmp
+                    tmp = chr(int(tmp, 16))
                     final = final + tmp
 
                 else:
-                    tmp = codecs.decode(tmp2+tmp, "hex").decode('utf-8')
-                    final = final + tmp
-
+                    if (tmp != "0") or (tmp2 != "0") :
+                        tmp = chr(int(tmp2+tmp, 16))
+                        final = final + tmp
+                    else:
+                        final += ''
     return final
 
 
@@ -417,19 +386,19 @@ def reverseCBC(cipher, cle, IV):
 
 def genKey(mdp, mode):
     resultat = []
-    if(mode == "IV"):
+    if mode == "IV" :
         alea = int(hex(ord(mdp[-1:])), base=16) & 0xFF
         res = mdp + str(alea)
         res = sha3(res, 512)
         for c in res[:16]:
             resultat.append(int(c, base=16))
         return resultat
-    elif(mode == "HMACKey"):
+    elif mode == "HMACKey" :
         alea = int(hex(ord(mdp[1])), base=16) & 0xFF
         res = mdp + str(alea)
         res = sha3(res, 512)
         return res
-    elif (mode == "MidoriKey"):
+    elif mode == "MidoriKey":
         alea = int(hex(ord(mdp[0])), base=16) & 0xFF
         res = mdp + str(alea)
         res = sha3(res, 512)
@@ -438,8 +407,6 @@ def genKey(mdp, mode):
         return resultat
     else:
         return "Mode incorrect."
-
-#print(genKey('salut', 500))
 
 ##########################################################################################
 #                                       HMAC                                             #
@@ -453,8 +420,6 @@ def HMAC(m, key):
     block2 = sha3(Bits2Text(xor2String(key, ipad)) + m, 512)
     blockFinal = Bits2Text(block1) + block2
     return sha3(blockFinal, 512)
-
-#print(HMAC("salut", "key"))
 
 ##########################################################################################
 #                                    ENCRYPT-THEN-MAC                                    #
@@ -485,6 +450,47 @@ def decrypt(c, mdp):
 
     return reverseCBC(cipher, MidoriKey, IV)
 
-print(encryptThenMac("salutaaaaaaaaaaaaa", "key"))
-print(decrypt("333908e616f59b2203e53ae99b763cfac42726621267f573f4ba570fe8560debd7d3534d50e4c181cc2f233b663a5a64fcf55e8e61b83e8e3a51d34e65c3d678241778e498c7055abd0045e1376d3d3e633ec58ce03544c4", "key"))
+if __name__ == "__main__":
 
+    # création du parse des arguments
+    parser = argparse.ArgumentParser(description="Chiffrement authentifié.")
+
+    # déclaration et configuration des arguments
+    parser.add_argument('-e', '--encrypt', action='store_true', help='Permet de chiffrer le message.')
+    parser.add_argument('-d', '--decrypt', action='store_true', help='Permet de dechiffrer le message.')
+    parser.add_argument('-i', '--input', metavar='File', help='Spécifie le fichier à chiffrer.',
+                        type=argparse.FileType('r'))
+    parser.add_argument('-o', '--output', metavar='File',
+                        help='Spécifie le fichier dans lequel écrire le résultat du déchiffrement.',
+                        type=argparse.FileType('w'))
+
+    # dictionnaire des arguments
+    args = parser.parse_args()
+
+    if args.encrypt:
+        text = ""
+        if args.input:
+            text = ''.join(args.input.readlines())
+        else:
+            text = input("Entrez le message à chiffrer:\n")
+        passwd = input("Entrez un mot de passe :\n")
+        if args.output:
+            args.output.write(encryptThenMac(text, passwd))
+        else:
+            print(encryptThenMac(text, passwd))
+    elif args.decrypt:
+        cipher = ""
+        if args.input:
+            cipher = ''.join(args.input.readlines())
+        else:
+            cipher = input("Entrez le message à déchiffrer:\n")
+        passwd = input("Entrez le mot de passe:\n")
+        if args.output:
+            args.output.write(decrypt(cipher, passwd))
+        else:
+            print(decrypt(cipher, passwd))
+    else:
+        print("Veuillez rentrer une option valide.")
+        exit(1)
+
+        

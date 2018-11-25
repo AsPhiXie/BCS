@@ -1,4 +1,6 @@
-import binascii, argparse
+# coding: utf-8
+
+import binascii, argparse, datetime
 
 ##########################################################################################
 #                                       SHA3                                             #
@@ -260,8 +262,8 @@ def reverseMidori(m, k):
         res = subCells(res)
         res = mixColumn(res)
         res = reverseShuffleCells(res)
-        tmpRK = reverseShuffleCells(mixColumn(rk))
-        res = addKey(res, tmpRK)
+        tmp = reverseShuffleCells(mixColumn(rk))
+        res = addKey(res, tmp)
     res = subCells(res)
     res = addKey(res, wk)
     return res
@@ -377,8 +379,8 @@ def reverseCBC(cipher, cle, IV):
     return final
 
 
-##Fonction de dérivation de clé/vecteurs d'initialisation à partir d'un mdp (8 caractères)
-##En CBC taille vecteur d'initialisation = taille du bloc
+#Fonction de dérivation de clé/vecteurs d'initialisation à partir d'un mdp (8 caractères)
+#En CBC taille vecteur d'initialisation = taille du bloc
 
 ##########################################################################################
 #                             Fonction de dérivation de clés                             #
@@ -458,6 +460,8 @@ if __name__ == "__main__":
     # déclaration et configuration des arguments
     parser.add_argument('-e', '--encrypt', action='store_true', help='Permet de chiffrer le message.')
     parser.add_argument('-d', '--decrypt', action='store_true', help='Permet de dechiffrer le message.')
+    parser.add_argument('-bin', '--binary', metavar='File', help='Spécifie que le fichier est un binaire.',
+                        type=argparse.FileType('rb'))
     parser.add_argument('-i', '--input', metavar='File', help='Spécifie le fichier à chiffrer.',
                         type=argparse.FileType('r'))
     parser.add_argument('-o', '--output', metavar='File',
@@ -471,13 +475,20 @@ if __name__ == "__main__":
         text = ""
         if args.input:
             text = ''.join(args.input.readlines())
+        elif args.binary:
+            #Ne fonctionne pas
+            text = args.binary.readlines()
         else:
             text = input("Entrez le message à chiffrer:\n")
         passwd = input("Entrez un mot de passe :\n")
         if args.output:
+            print(datetime.datetime.now())
             args.output.write(encryptThenMac(text, passwd))
+            print(datetime.datetime.now())
         else:
+            print(datetime.datetime.now())
             print(encryptThenMac(text, passwd))
+            print(datetime.datetime.now())
     elif args.decrypt:
         cipher = ""
         if args.input:
@@ -493,4 +504,3 @@ if __name__ == "__main__":
         print("Veuillez rentrer une option valide.")
         exit(1)
 
-        
